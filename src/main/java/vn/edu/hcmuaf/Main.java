@@ -37,7 +37,9 @@ public class Main {
                             continue;
                         } else if (status.equals("FINISHED") || status.equals("CRAWLING")) {
                             controller.crawlData(controlConnection, list.get(i), config);
+                            controller.excelToStagingTable(stagingConnection, controlConnection, config);
                         } else if (status.equals("EXTRACTING")) {
+                            controller.excelToStagingTable(stagingConnection, controlConnection, config);
                         }
                     } catch (SQLException e) {
                         e.printStackTrace();
