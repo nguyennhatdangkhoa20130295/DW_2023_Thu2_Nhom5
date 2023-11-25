@@ -1,6 +1,8 @@
 package vn.edu.hcmuaf.controller;
 
 import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.jsoup.Jsoup;
@@ -8,7 +10,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import vn.edu.hcmuaf.dao.LotteryResultsDAO;
-import vn.edu.hcmuaf.db.ConnectionManager;
+import vn.edu.hcmuaf.db.DBConnection;
 import vn.edu.hcmuaf.entity.DataFileConfig;
 import vn.edu.hcmuaf.entity.LotteryResults;
 
@@ -16,15 +18,20 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.stream.Stream;
 
 
 public class Controller {
     public void crawlData(Connection connection, String date, DataFileConfig config) throws IOException {
         LotteryResultsDAO dao = new LotteryResultsDAO();
-        dao.insertDataFileWithNewStatus(connection, config.getId(), "CRAWLING");
+        dao.insertStatus(connection, config.getId(), "CRAWLING", date);
         String dateObj = formatDate(date, "dd-MM-yyyy");
         String dateCheck = formatDate(date, "dd/MM/yyyy");
         String url = config.getSource_path() + dateObj + ".html";
@@ -72,7 +79,7 @@ public class Controller {
                 }
             }
         }
-        dao.insertDataFileWithNewStatus(connection, config.getId(), "CRAWLED");
+        dao.insertStatus(connection, config.getId(), "CRAWLED", date);
         System.out.println("Crawl successfully!");
         writeDataToExcel(results, config.getLocation(), date);
     }
@@ -152,53 +159,81 @@ public class Controller {
         }
     }
 
-    public static File getLatestExcelFile(String directoryPath) {
-        File directory = new File(directoryPath);
 
-        if (directory.isDirectory()) {
-            File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".xlsx"));
+    public void extractToStaging(String pathFile, Connection connection) {
+        try (FileInputStream excelFile = new FileInputStream(pathFile);
+             Workbook workbook = new XSSFWorkbook(excelFile)) {
 
-            if (files != null && files.length > 0) {
-                Arrays.sort(files, Comparator.comparingLong(File::lastModified).reversed());
-                return files[0];
+            Sheet sheet = workbook.getSheetAt(0);
+
+            Iterator<Row> iterator = sheet.iterator();
+            iterator.next();
+            while (iterator.hasNext()) {
+                Row currentRow = iterator.next();
+                String date = currentRow.getCell(0).getStringCellValue();
+                String region = currentRow.getCell(1).getStringCellValue();
+                String lottery_code = currentRow.getCell(2).getStringCellValue();
+                String province = currentRow.getCell(3).getStringCellValue();
+                String prize = currentRow.getCell(4).getStringCellValue();
+                String number = currentRow.getCell(5).getStringCellValue();
+
+                // Insert data into the database
+                String callProcedure = "{CALL ExtractToStaging(?,?,?,?,?,?,?)}";
+                try (CallableStatement callableStatement = connection.prepareCall(callProcedure)) {
+                    callableStatement.setString(1, date);
+                    callableStatement.setString(2, region);
+                    callableStatement.setString(3, lottery_code);
+                    callableStatement.setString(4, province);
+                    callableStatement.setString(5, prize);
+                    callableStatement.setString(6, number);
+                    callableStatement.setString(7, date);
+                    // Thực hiện gọi stored procedure
+                    callableStatement.execute();
+                }
             }
+            System.out.println("Extract successfully!");
+        } catch (IOException | SQLException e) {
+            e.printStackTrace();
         }
-
-        return null;
     }
 
-    public void excelToStagingTable(Connection stagingConn, Connection controlConn, DataFileConfig config) throws IOException {
-        LotteryResultsDAO dao = new LotteryResultsDAO();
-        dao.insertDataFileWithNewStatus(controlConn, config.getId(), "EXTRACTING");
-        File latestExcelFile = getLatestExcelFile(config.getLocation());
-        if (latestExcelFile != null) {
-            try (FileInputStream fis = new FileInputStream(latestExcelFile);
-                 XSSFWorkbook workbook = new XSSFWorkbook(fis)) {
 
-                Iterator<Row> iterator = workbook.getSheetAt(0).iterator();
-
-                if (iterator.hasNext()) {
-                    iterator.next();
-                }
-                while (iterator.hasNext()) {
-                    Row row = iterator.next();
-                    String dateValue = row.getCell(0).getStringCellValue();
-                    String regionValue = row.getCell(1).getStringCellValue();
-                    String lotteryIdValue = row.getCell(2).getStringCellValue();
-                    String provinceValue = row.getCell(3).getStringCellValue();
-                    String prizeNameValue = row.getCell(4).getStringCellValue();
-                    String numberValue = row.getCell(5).getStringCellValue();
-                    LotteryResults results = new LotteryResults(dateValue, regionValue, lotteryIdValue, provinceValue, prizeNameValue, numberValue);
-                    dao.insertDataToStaging(results, stagingConn);
-                }
-            }
-            dao.insertDataFileWithNewStatus(controlConn, config.getId(), "EXTRACTED");
-            System.out.println("Extract successfully!");
-        } else {
-            System.out.println("No Excel files found in the directory.");
+    public static Optional<File> findLatestExcelFile(String folderPath) throws IOException {
+        Path folder = Paths.get(folderPath);
+        if (!Files.exists(folder) || !Files.isDirectory(folder)) {
+            return Optional.empty();
         }
-        dao.insertDataFileWithNewStatus(controlConn, config.getId(), "FINISHED");
-        System.out.println("Well done!");
+
+        // Lọc tất cả các tệp Excel trong thư mục và con thư mục
+        try (Stream<Path> walk = Files.walk(folder)) {
+            return walk
+                    .filter(path -> path.toString().toLowerCase().endsWith(".xlsx") || path.toString().toLowerCase().endsWith(".xls"))
+                    .map(Path::toFile)
+                    .max(Comparator.comparingLong(file -> file.lastModified()));
+        }
+    }
+
+    public void extractToStaging(Connection connection, DataFileConfig config, String date) throws IOException {
+        LotteryResultsDAO dao = new LotteryResultsDAO();
+        dao.insertStatus(connection, config.getId(), "EXTRACTING", date);
+        try (CallableStatement callableStatement = connection.prepareCall("{CALL truncate_staging_table()}")) {
+            callableStatement.execute();
+            Optional<File> latestExcelFile = findLatestExcelFile(config.getLocation());
+            if (latestExcelFile.isPresent()) {
+                File excelFile = latestExcelFile.get();
+//                System.out.println("Tệp Excel mới nhất là: " + excelFile.getAbsolutePath());
+                extractToStaging(excelFile.getAbsolutePath(), connection);
+                dao.insertStatus(connection, config.getId(), "EXTRACTED", date);
+                dao.insertStatus(connection, config.getId(), "FINISHED", date);
+            } else {
+                System.out.println("Không tìm thấy tệp Excel trong thư mục.");
+                dao.insertStatus(connection, config.getId(), "ERROR", date);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
 

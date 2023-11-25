@@ -2,7 +2,7 @@ package vn.edu.hcmuaf;
 
 import vn.edu.hcmuaf.controller.Controller;
 import vn.edu.hcmuaf.dao.LotteryResultsDAO;
-import vn.edu.hcmuaf.db.ConnectionManager;
+import vn.edu.hcmuaf.db.DBConnection;
 import vn.edu.hcmuaf.entity.DataFileConfig;
 
 import java.io.IOException;
@@ -24,28 +24,25 @@ public class Main {
         list.add("2023-11-20");
         list.add("2023-11-21");
         list.add("2023-11-22");
-        ConnectionManager manager = new ConnectionManager();
+        DBConnection db = new DBConnection();
         LotteryResultsDAO dao = new LotteryResultsDAO();
-        try (Connection controlConnection = manager.getControlDataSource().getConnection()) {
-            List<DataFileConfig> dataFileConfigs = dao.getDataFileConfigList(controlConnection);
+        try (Connection connection = db.getConnection()) {
+            List<DataFileConfig> configs = dao.getConfigurationsWithFlagOne(connection);
             Controller controller = new Controller();
             for (int i = list.size() - 1; i > -1; i--) {
-                for (DataFileConfig config : dataFileConfigs) {
-                    String status = dao.getStatus(controlConnection, config.getId());
-                    try (Connection stagingConnection = manager.getStagingDataSource().getConnection()) {
-                        if (status.equals("ERROR")) {
-                            continue;
-                        } else if (status.equals("FINISHED") || status.equals("CRAWLING")) {
-                            controller.crawlData(controlConnection, list.get(i), config);
-                            controller.excelToStagingTable(stagingConnection, controlConnection, config);
-                        } else if (status.equals("EXTRACTING")) {
-                            controller.excelToStagingTable(stagingConnection, controlConnection, config);
-                        }
-                    } catch (SQLException e) {
-                        e.printStackTrace();
+                for (DataFileConfig config : configs) {
+                    String status = dao.getStatus(connection, config.getId());
+                    if (status.equals("ERROR")) {
+                        continue;
+                    } else if (status.equals("FINISHED") || status.equals("CRAWLING")) {
+                        controller.crawlData(connection, list.get(i), config);
+                        controller.extractToStaging(connection, config, list.get(i));
+                    } else if (status.equals("EXTRACTING")) {
+                        controller.extractToStaging(connection, config, list.get(i));
                     }
                 }
             }
+            DBConnection.closeConnection();
         } catch (SQLException e) {
             e.printStackTrace();
         }
