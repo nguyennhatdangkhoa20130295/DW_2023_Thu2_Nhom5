@@ -15,15 +15,15 @@ public class Main {
     public static void main(String[] args) throws IOException {
         List<String> list = new ArrayList<>();
         list.add("2023-11-13");
-        list.add("2023-11-14");
-        list.add("2023-11-15");
-        list.add("2023-11-16");
-        list.add("2023-11-17");
-        list.add("2023-11-18");
-        list.add("2023-11-19");
-        list.add("2023-11-20");
-        list.add("2023-11-21");
-        list.add("2023-11-22");
+//        list.add("2023-11-14");
+//        list.add("2023-11-15");
+//        list.add("2023-11-16");
+//        list.add("2023-11-17");
+//        list.add("2023-11-18");
+//        list.add("2023-11-19");
+//        list.add("2023-11-20");
+//        list.add("2023-11-21");
+//        list.add("2023-11-22");
         DBConnection db = new DBConnection();
         LotteryResultsDAO dao = new LotteryResultsDAO();
         try (Connection connection = db.getConnection()) {
@@ -37,8 +37,12 @@ public class Main {
                     } else if (status.equals("FINISHED") || status.equals("CRAWLING")) {
                         controller.crawlData(connection, list.get(i), config);
                         controller.extractToStaging(connection, config, list.get(i));
+                        controller.transformData(config.getId(), connection, list.get(i));
                     } else if (status.equals("EXTRACTING")) {
                         controller.extractToStaging(connection, config, list.get(i));
+                        controller.transformData(config.getId(), connection, list.get(i));
+                    } else if (status.equals("TRANSFORMING")) {
+                        controller.transformData(config.getId(), connection, list.get(i));
                     }
                 }
             }

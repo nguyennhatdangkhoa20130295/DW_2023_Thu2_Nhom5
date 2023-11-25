@@ -13,6 +13,7 @@ import vn.edu.hcmuaf.dao.LotteryResultsDAO;
 import vn.edu.hcmuaf.db.DBConnection;
 import vn.edu.hcmuaf.entity.DataFileConfig;
 import vn.edu.hcmuaf.entity.LotteryResults;
+import vn.edu.hcmuaf.util.SendEmailError;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -224,7 +225,6 @@ public class Controller {
 //                System.out.println("Tệp Excel mới nhất là: " + excelFile.getAbsolutePath());
                 extractToStaging(excelFile.getAbsolutePath(), connection);
                 dao.insertStatus(connection, config.getId(), "EXTRACTED", date);
-                dao.insertStatus(connection, config.getId(), "FINISHED", date);
             } else {
                 System.out.println("Không tìm thấy tệp Excel trong thư mục.");
                 dao.insertStatus(connection, config.getId(), "ERROR", date);
@@ -232,6 +232,27 @@ public class Controller {
         } catch (IOException e) {
             e.printStackTrace();
         } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void transformData(int idConfig, Connection connection, String date) throws IOException {
+        LotteryResultsDAO dao = new LotteryResultsDAO();
+        dao.insertStatus(connection, idConfig, "TRANSFORMING", date);
+
+        try (CallableStatement callableStatement = connection.prepareCall("{CALL TransformData()}")) {
+            // Thực hiện stored procedure
+            callableStatement.execute();
+
+            dao.insertStatus(connection, idConfig, "TRANSFORMED", date);
+            dao.insertStatus(connection, idConfig, "FINISHED", date);
+
+            System.out.println("transform success!");
+        } catch (SQLException e) {
+            // Xử lý lỗi khi thực hiện stored procedure
+            e.printStackTrace();
+            dao.insertStatus(connection, idConfig, "ERROR", date);
+            SendEmailError.sendErrorEmail("TRANSFORMING", "Error while transforming data: " + e.getMessage());
             throw new RuntimeException(e);
         }
     }

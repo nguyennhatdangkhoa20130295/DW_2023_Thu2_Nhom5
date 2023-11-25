@@ -8,7 +8,7 @@ import java.util.List;
 
 public class DBConnection {
     private static Connection connection;
-    private static final String DATABASE_URL = "jdbc:mysql://localhost:3306/db_control";
+    private static final String DATABASE_URL = "jdbc:mysql://localhost:3307/db_control";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
 
