@@ -245,8 +245,6 @@ public class Controller {
             callableStatement.execute();
 
             dao.insertStatus(connection, idConfig, "TRANSFORMED", date);
-            dao.insertStatus(connection, idConfig, "FINISHED", date);
-
             System.out.println("transform success!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
@@ -256,5 +254,26 @@ public class Controller {
             throw new RuntimeException(e);
         }
     }
+
+    public void loadToWH(int idConfig, Connection connection, String date) throws IOException {
+        LotteryResultsDAO dao = new LotteryResultsDAO();
+        dao.insertStatus(connection, idConfig, "WLOADING", date);
+
+        try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadDataToWH()}")) {
+            // Thực hiện stored procedure
+            callableStatement.execute();
+
+            dao.insertStatus(connection, idConfig, "WLOADED", date);
+            dao.insertStatus(connection, idConfig, "FINISHED", date);
+            System.out.println("load to warehouse success!");
+        } catch (SQLException e) {
+            // Xử lý lỗi khi thực hiện stored procedure
+            e.printStackTrace();
+            dao.insertStatus(connection, idConfig, "ERROR", date);
+            SendEmailError.sendErrorEmail("WLOADING", "Error while loading data to warehouse: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
 }
 
