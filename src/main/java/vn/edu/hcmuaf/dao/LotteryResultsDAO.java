@@ -57,7 +57,7 @@ public class LotteryResultsDAO {
             callableStatement.setString(3, date);
             // Thực hiện stored procedure
             callableStatement.execute();
-            System.out.println("status: " + status);
+//            System.out.println("status: " + status);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
