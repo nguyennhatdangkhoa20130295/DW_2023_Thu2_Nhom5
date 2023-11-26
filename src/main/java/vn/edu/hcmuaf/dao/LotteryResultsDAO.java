@@ -34,7 +34,7 @@ public class LotteryResultsDAO {
 
     public static String getStatus(Connection connection, int idConfig) {
         String status = "";
-        String query = "SELECT `status` FROM data_files WHERE df_config_id=? ORDER BY file_timestamp DESC , data_files.id DESC LIMIT 1";
+        String query = "SELECT `status` FROM data_files WHERE df_config_id=? AND status <> 'ERROR' ORDER BY file_timestamp DESC , data_files.id DESC LIMIT 1";
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setInt(1, idConfig);
@@ -57,7 +57,6 @@ public class LotteryResultsDAO {
             callableStatement.setString(3, date);
             // Thực hiện stored procedure
             callableStatement.execute();
-//            System.out.println("status: " + status);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

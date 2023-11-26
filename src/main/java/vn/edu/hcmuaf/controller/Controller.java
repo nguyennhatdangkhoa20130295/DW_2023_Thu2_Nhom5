@@ -10,7 +10,6 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import vn.edu.hcmuaf.dao.LotteryResultsDAO;
-import vn.edu.hcmuaf.db.DBConnection;
 import vn.edu.hcmuaf.entity.DataFileConfig;
 import vn.edu.hcmuaf.entity.LotteryResults;
 import vn.edu.hcmuaf.util.SendEmailError;
@@ -30,13 +29,11 @@ import java.util.stream.Stream;
 
 
 public class Controller {
-    public void crawlData(Connection connection, String date, DataFileConfig config) throws IOException {
-        LotteryResultsDAO dao = new LotteryResultsDAO();
+    public void crawlData(Connection connection, String date, DataFileConfig config,LotteryResultsDAO dao) throws IOException {
         dao.insertStatus(connection, config.getId(), "CRAWLING", date);
         String dateObj = formatDate(date, "dd-MM-yyyy");
         String dateCheck = formatDate(date, "dd/MM/yyyy");
         String url = config.getSource_path() + dateObj + ".html";
-        System.out.println(url);
         Document doc = Jsoup.connect(url).get();
         Elements lotteryElements = doc.select("div.box_kqxs");
         List<LotteryResults> results = new ArrayList<>();
@@ -81,7 +78,7 @@ public class Controller {
             }
         }
         dao.insertStatus(connection, config.getId(), "CRAWLED", date);
-        System.out.println("Crawl successfully!");
+        System.out.print("Crawl successfully! ");
         writeDataToExcel(results, config.getLocation(), date);
     }
 
@@ -151,7 +148,7 @@ public class Controller {
             try (FileOutputStream fos = new FileOutputStream(excelFilePath)) {
                 workbook.write(fos);
                 fos.close();
-                System.out.println("Đã thêm file " + excelFilePath + " thành công.");
+                System.out.println(excelFilePath);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -214,8 +211,7 @@ public class Controller {
         }
     }
 
-    public void extractToStaging(Connection connection, DataFileConfig config, String date) throws IOException {
-        LotteryResultsDAO dao = new LotteryResultsDAO();
+    public void extractToStaging(Connection connection, DataFileConfig config, String date,LotteryResultsDAO dao) throws IOException {
         dao.insertStatus(connection, config.getId(), "EXTRACTING", date);
         try (CallableStatement callableStatement = connection.prepareCall("{CALL truncate_staging_table()}")) {
             callableStatement.execute();
@@ -236,8 +232,7 @@ public class Controller {
         }
     }
 
-    public void transformData(int idConfig, Connection connection, String date) throws IOException {
-        LotteryResultsDAO dao = new LotteryResultsDAO();
+    public void transformData(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException {
         dao.insertStatus(connection, idConfig, "TRANSFORMING", date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL TransformData()}")) {
@@ -255,8 +250,7 @@ public class Controller {
         }
     }
 
-    public void loadToWH(int idConfig, Connection connection, String date) throws IOException {
-        LotteryResultsDAO dao = new LotteryResultsDAO();
+    public void loadToWH(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException {
         dao.insertStatus(connection, idConfig, "WLOADING", date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadDataToWH()}")) {
@@ -264,7 +258,6 @@ public class Controller {
             callableStatement.execute();
 
             dao.insertStatus(connection, idConfig, "WLOADED", date);
-            dao.insertStatus(connection, idConfig, "FINISHED", date);
             System.out.println("load to warehouse success!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
@@ -275,8 +268,7 @@ public class Controller {
         }
     }
 
-    public void aggregateLottery(int idConfig, Connection connection,String date) throws IOException {
-        LotteryResultsDAO dao = new LotteryResultsDAO();
+    public void aggregateLottery(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException {
         dao.insertStatus(connection, idConfig, "AGGREGATING",date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL AggregateTable()}")) {
@@ -293,8 +285,7 @@ public class Controller {
             throw new RuntimeException(e);
         }
     }
-    public void loadToMart(int idConfig, Connection connection,String date) throws IOException {
-        LotteryResultsDAO dao = new LotteryResultsDAO();
+    public void loadToMart(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException {
         dao.insertStatus(connection, idConfig, "MLOADING",date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadToDM()}")) {
