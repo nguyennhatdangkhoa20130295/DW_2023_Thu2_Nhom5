@@ -275,5 +275,43 @@ public class Controller {
         }
     }
 
+    public void aggregateLottery(int idConfig, Connection connection,String date) throws IOException {
+        LotteryResultsDAO dao = new LotteryResultsDAO();
+        dao.insertStatus(connection, idConfig, "AGGREGATING",date);
+
+        try (CallableStatement callableStatement = connection.prepareCall("{CALL AggregateTable()}")) {
+            // Thực hiện stored procedure
+            callableStatement.execute();
+
+            dao.insertStatus(connection, idConfig, "AGGREGATED",date);
+            System.out.println("aggregate success!");
+        } catch (SQLException e) {
+            // Xử lý lỗi khi thực hiện stored procedure
+            e.printStackTrace();
+            dao.insertStatus(connection, idConfig, "ERROR",date);
+            SendEmailError.sendErrorEmail("AGGREGATING", "Error while aggregating data: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+    public void loadToMart(int idConfig, Connection connection,String date) throws IOException {
+        LotteryResultsDAO dao = new LotteryResultsDAO();
+        dao.insertStatus(connection, idConfig, "MLOADING",date);
+
+        try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadToDM()}")) {
+            // Thực hiện stored procedure
+            callableStatement.execute();
+
+            dao.insertStatus(connection, idConfig, "MLOADED",date);
+            dao.insertStatus(connection, idConfig, "FINISHED",date);
+            System.out.println("load to mart success!");
+            System.out.println("finished!");
+        } catch (SQLException e) {
+            // Xử lý lỗi khi thực hiện stored procedure
+            e.printStackTrace();
+            dao.insertStatus(connection, idConfig, "ERROR",date);
+            SendEmailError.sendErrorEmail("MLOADING", "Error while loading data to mart: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
 }
 

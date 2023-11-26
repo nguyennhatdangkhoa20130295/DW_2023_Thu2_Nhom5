@@ -39,15 +39,29 @@ public class Main {
                         controller.extractToStaging(connection, config, list.get(i));
                         controller.transformData(config.getId(), connection, list.get(i));
                         controller.loadToWH(config.getId(), connection, list.get(i));
+                        controller.aggregateLottery(config.getId(), connection,list.get(i));
+                        controller.loadToMart(config.getId(), connection,list.get(i));
                     } else if (status.equals("EXTRACTING")) {
                         controller.extractToStaging(connection, config, list.get(i));
                         controller.transformData(config.getId(), connection, list.get(i));
                         controller.loadToWH(config.getId(), connection, list.get(i));
+                        controller.aggregateLottery(config.getId(), connection,list.get(i));
+                        controller.loadToMart(config.getId(), connection,list.get(i));
                     } else if (status.equals("TRANSFORMING")) {
                         controller.transformData(config.getId(), connection, list.get(i));
                         controller.loadToWH(config.getId(), connection, list.get(i));
+                        controller.aggregateLottery(config.getId(), connection,list.get(i));
+                        controller.loadToMart(config.getId(), connection,list.get(i));
                     } else if (status.equals("WLOADING")) {
                         controller.loadToWH(config.getId(), connection, list.get(i));
+                        controller.aggregateLottery(config.getId(), connection,list.get(i));
+                        controller.loadToMart(config.getId(), connection,list.get(i));
+                    }
+                    else if (status.equals("AGGREGATING")) {
+                        controller.aggregateLottery(config.getId(), connection,list.get(i));
+                        controller.loadToMart(config.getId(), connection,list.get(i));
+                    } else if (status.equals("MLOADING")) {
+                        controller.loadToMart(config.getId(), connection,list.get(i));
                     }
                 }
             }
