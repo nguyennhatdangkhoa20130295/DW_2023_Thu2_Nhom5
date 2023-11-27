@@ -11,7 +11,7 @@ public class DBConnection {
     private static String USERNAME;
     private static String PASSWORD;
 
-    public DBConnection(String URL, String USERNAME, String PASSWORD) throws IOException {
+    public DBConnection(String URL, String USERNAME, String PASSWORD) {
         this.URL = URL;
         this.USERNAME = USERNAME;
         this.PASSWORD = PASSWORD;
@@ -22,10 +22,10 @@ public class DBConnection {
             try {
                 // Tạo kết nối đến cơ sở dữ liệu
                 connection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
-                System.out.println("Connected successfully "+URL);
+                System.out.println("Connected successfully " + URL);
             } catch (SQLException e) {
                 e.printStackTrace();
-                SendEmailError.sendErrorEmail("Connect database",e.getMessage());
+                SendEmailError.sendErrorEmail("Connect database", e.getMessage());
                 throw new RuntimeException("Không thể thiết lập kết nối đến cơ sở dữ liệu.");
             }
         }
@@ -39,7 +39,7 @@ public class DBConnection {
                 System.out.println("Đã đóng kết nối đến cơ sở dữ liệu.");
             } catch (SQLException e) {
                 e.printStackTrace();
-                SendEmailError.sendErrorEmail("Close connection",e.getMessage());
+                SendEmailError.sendErrorEmail("Close connection", e.getMessage());
             }
         }
     }
