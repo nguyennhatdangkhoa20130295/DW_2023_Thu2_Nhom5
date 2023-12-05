@@ -119,6 +119,8 @@ public class Controller {
     public void writeDataToExcel(List<LotteryResults> lotteryResults, String location, String date) {
         String excelFilePath = location + "\\crawl_lottery_results_" + date + ".xlsx";
 
+        createDirectoryIfNotExists(location);
+
         try {
             XSSFWorkbook workbook = new XSSFWorkbook();
             XSSFSheet spreadsheet = workbook.createSheet("KQXS");
@@ -154,6 +156,18 @@ public class Controller {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void createDirectoryIfNotExists(String directoryPath) {
+        Path path = Paths.get(directoryPath);
+        if (!Files.exists(path)) {
+            try {
+                Files.createDirectories(path);
+                System.out.println("Đã tạo thư mục: " + directoryPath);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
