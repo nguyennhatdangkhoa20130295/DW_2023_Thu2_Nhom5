@@ -17,6 +17,7 @@ public class Main {
     public static void main(String[] args) throws IOException {
 
         String date = LocalDate.now().toString();
+//        String date = "2023-11-29";
         Properties propertiesDB = PropertiesReader.readPropertiesFile();
 
         if (propertiesDB != null) {
@@ -24,8 +25,11 @@ public class Main {
             String username = propertiesDB.getProperty("db.username");
             String password = propertiesDB.getProperty("db.password");
 
+            if (!propertiesDB.getProperty("run").equals("auto")) date = propertiesDB.getProperty("run");
+
             DBConnection db = new DBConnection(url, username, password);
             LotteryResultsDAO dao = new LotteryResultsDAO();
+
             try (Connection connection = db.getConnection()) {
                 List<DataFileConfig> configs = dao.getConfigurationsWithFlagOne(connection);
                 Controller controller = new Controller();
