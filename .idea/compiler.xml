@@ -10,5 +10,8 @@
         <module name="Data_Warehouse_Lottery_Result" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="DW_2023_Thu2_Nhom5" target="18" />
+    </bytecodeTargetLevel>
   </component>
 </project>

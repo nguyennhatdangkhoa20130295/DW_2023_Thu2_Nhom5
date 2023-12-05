@@ -33,13 +33,13 @@ public class Main {
                     String status = dao.getStatus(connection, config.getId());
                     if (status.equals("FINISHED") || status.equals("CRAWLING")) {
                         controller.crawlData(connection, date, config, dao);
-                        controller.extractToStaging(connection, config, date, dao);
+                        controller.truncateAndInsertToStaging(connection, config, date, dao);
                         controller.transformData(config.getId(), connection, date, dao);
                         controller.loadToWH(config.getId(), connection, date, dao);
                         controller.aggregateLottery(config.getId(), connection, date, dao);
                         controller.loadToMart(config.getId(), connection, date, dao);
                     } else if (status.equals("EXTRACTING")) {
-                        controller.extractToStaging(connection, config, date, dao);
+                        controller.truncateAndInsertToStaging(connection, config, date, dao);
                         controller.transformData(config.getId(), connection, date, dao);
                         controller.loadToWH(config.getId(), connection, date, dao);
                         controller.aggregateLottery(config.getId(), connection, date, dao);

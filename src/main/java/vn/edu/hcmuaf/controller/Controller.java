@@ -211,7 +211,7 @@ public class Controller {
         }
     }
 
-    public void extractToStaging(Connection connection, DataFileConfig config, String date,LotteryResultsDAO dao) throws IOException {
+    public void truncateAndInsertToStaging(Connection connection, DataFileConfig config, String date, LotteryResultsDAO dao) throws IOException {
         dao.insertStatus(connection, config.getId(), "EXTRACTING", date);
         try (CallableStatement callableStatement = connection.prepareCall("{CALL truncate_staging_table()}")) {
             callableStatement.execute();
