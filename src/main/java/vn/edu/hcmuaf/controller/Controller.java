@@ -246,7 +246,7 @@ public class Controller {
         }
     }
 
-    public void transformData(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException {
+    public void transformData(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException, SQLException {
         dao.insertStatus(connection, idConfig, "TRANSFORMING", date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL TransformData()}")) {
@@ -260,11 +260,12 @@ public class Controller {
             e.printStackTrace();
             dao.insertStatus(connection, idConfig, "ERROR", date);
             SendEmailError.sendErrorEmail("TRANSFORMING", "Error while transforming data: " + e.getMessage());
+            connection.close();
             throw new RuntimeException(e);
         }
     }
 
-    public void loadToWH(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException {
+    public void loadToWH(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException, SQLException {
         dao.insertStatus(connection, idConfig, "WLOADING", date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadDataToWH()}")) {
@@ -278,11 +279,12 @@ public class Controller {
             e.printStackTrace();
             dao.insertStatus(connection, idConfig, "ERROR", date);
             SendEmailError.sendErrorEmail("WLOADING", "Error while loading data to warehouse: " + e.getMessage());
+            connection.close();
             throw new RuntimeException(e);
         }
     }
 
-    public void aggregateLottery(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException {
+    public void aggregateLottery(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException, SQLException {
         dao.insertStatus(connection, idConfig, "AGGREGATING",date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL AggregateTable()}")) {
@@ -296,10 +298,11 @@ public class Controller {
             e.printStackTrace();
             dao.insertStatus(connection, idConfig, "ERROR",date);
             SendEmailError.sendErrorEmail("AGGREGATING", "Error while aggregating data: " + e.getMessage());
+            connection.close();
             throw new RuntimeException(e);
         }
     }
-    public void loadToMart(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException {
+    public void loadToMart(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException, SQLException {
         dao.insertStatus(connection, idConfig, "MLOADING",date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadToDM()}")) {
@@ -315,8 +318,10 @@ public class Controller {
             e.printStackTrace();
             dao.insertStatus(connection, idConfig, "ERROR",date);
             SendEmailError.sendErrorEmail("MLOADING", "Error while loading data to mart: " + e.getMessage());
+            connection.close();
             throw new RuntimeException(e);
         }
     }
+
 }
 

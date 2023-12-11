@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
@@ -17,7 +18,6 @@ public class Main {
     public static void main(String[] args) throws IOException {
 
         String date = LocalDate.now().toString();
-//        String date = "2023-11-29";
         Properties propertiesDB = PropertiesReader.readPropertiesFile();
 
         if (propertiesDB != null) {
@@ -33,6 +33,7 @@ public class Main {
             try (Connection connection = db.getConnection()) {
                 List<DataFileConfig> configs = dao.getConfigurationsWithFlagOne(connection);
                 Controller controller = new Controller();
+
                 for (DataFileConfig config : configs) {
                     String status = dao.getStatus(connection, config.getId());
                     if (status.equals("FINISHED") || status.equals("CRAWLING")) {
@@ -64,6 +65,7 @@ public class Main {
                         controller.loadToMart(config.getId(), connection, date, dao);
                     }
                 }
+
                 DBConnection.closeConnection();
             } catch (SQLException e) {
                 e.printStackTrace();
