@@ -253,44 +253,59 @@ public class Controller {
         }
     }
 
-    public void transformData(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException {
+    // transform data
+    public void transformData(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException, SQLException {
+        // 13.1. insert status "TRANSFORMING"
         dao.insertStatus(connection, idConfig, "TRANSFORMING", date);
 
+        // thực hiện stored procedure TransformData
         try (CallableStatement callableStatement = connection.prepareCall("{CALL TransformData()}")) {
-            // Thực hiện stored procedure
             callableStatement.execute();
 
+            // 13.18. insert status "TRANSFORMED"
             dao.insertStatus(connection, idConfig, "TRANSFORMED", date);
             System.out.println("Transform successfully!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
+            // 25. insert status "ERROR"
             dao.insertStatus(connection, idConfig, "ERROR", date);
+            // 26. gửi email báo lỗi
             SendEmailError.sendErrorEmail("TRANSFORMING", "Error while transforming data: " + e.getMessage());
+            // 24. đóng kết nối
+            connection.close();
             throw new RuntimeException(e);
         }
     }
 
-    public void loadToWH(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException {
+    // load to warehouse
+    public void loadToWH(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException, SQLException {
+        // 14.1. insert status "WLOADING"
         dao.insertStatus(connection, idConfig, "WLOADING", date);
 
+        // thực hiện stored procedure LoadDataToWH
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadDataToWH()}")) {
-            // Thực hiện stored procedure
             callableStatement.execute();
 
+            // 14.3 insert status "WLOADED"
             dao.insertStatus(connection, idConfig, "WLOADED", date);
             System.out.println("Load to warehouse successfully!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
+            // 25. insert status "ERROR" và gửi email báo lỗi
             dao.insertStatus(connection, idConfig, "ERROR", date);
+            // 26. gửi email báo lỗi
             SendEmailError.sendErrorEmail("WLOADING", "Error while loading data to warehouse: " + e.getMessage());
+            // 24. đóng kết nối
+            connection.close();
             throw new RuntimeException(e);
         }
     }
 
-    public void aggregateLottery(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException {
-        dao.insertStatus(connection, idConfig, "AGGREGATING", date);
+    // aggregate data
+    public void aggregateLottery(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException, SQLException {
+        dao.insertStatus(connection, idConfig, "AGGREGATING",date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL AggregateTable()}")) {
             // Thực hiện stored procedure
@@ -303,12 +318,14 @@ public class Controller {
             e.printStackTrace();
             dao.insertStatus(connection, idConfig, "ERROR", date);
             SendEmailError.sendErrorEmail("AGGREGATING", "Error while aggregating data: " + e.getMessage());
+            connection.close();
             throw new RuntimeException(e);
         }
     }
 
-    public void loadToMart(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException {
-        dao.insertStatus(connection, idConfig, "MLOADING", date);
+    // load to mart
+    public void loadToMart(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException, SQLException {
+        dao.insertStatus(connection, idConfig, "MLOADING",date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadToDM()}")) {
             // Thực hiện stored procedure
@@ -323,8 +340,10 @@ public class Controller {
             e.printStackTrace();
             dao.insertStatus(connection, idConfig, "ERROR", date);
             SendEmailError.sendErrorEmail("MLOADING", "Error while loading data to mart: " + e.getMessage());
+            connection.close();
             throw new RuntimeException(e);
         }
     }
+
 }
 
