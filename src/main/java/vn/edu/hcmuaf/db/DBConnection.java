@@ -20,11 +20,11 @@ public class DBConnection {
     public static Connection getConnection() {
         if (connection == null) {
             try {
-                // Tạo kết nối đến cơ sở dữ liệu
                 connection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
                 System.out.println("Connected successfully " + URL);
             } catch (SQLException e) {
                 e.printStackTrace();
+                // 27. Gửi email thông báo lỗi
                 SendEmailError.sendErrorEmail("Connect database", e.getMessage());
                 throw new RuntimeException("Không thể thiết lập kết nối đến cơ sở dữ liệu.");
             }
@@ -35,10 +35,12 @@ public class DBConnection {
     public static void closeConnection() {
         if (connection != null) {
             try {
+                // Đóng kết nối đến cơ sở dữ liệu
                 connection.close();
                 System.out.println("Đã đóng kết nối đến cơ sở dữ liệu.");
             } catch (SQLException e) {
                 e.printStackTrace();
+                // Gửi email thông báo lỗi
                 SendEmailError.sendErrorEmail("Close connection", e.getMessage());
             }
         }

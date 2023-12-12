@@ -29,57 +29,62 @@ import java.util.stream.Stream;
 
 
 public class Controller {
-    public void crawlData(Connection connection, String date, DataFileConfig config,LotteryResultsDAO dao) throws IOException {
+    public void crawlData(Connection connection, String date, DataFileConfig config, LotteryResultsDAO dao) throws IOException {
         dao.insertStatus(connection, config.getId(), "CRAWLING", date);
         String dateObj = formatDate(date, "dd-MM-yyyy");
         String dateCheck = formatDate(date, "dd/MM/yyyy");
         String url = config.getSource_path() + dateObj + ".html";
-        Document doc = Jsoup.connect(url).get();
-        Elements lotteryElements = doc.select("div.box_kqxs");
-        List<LotteryResults> results = new ArrayList<>();
-        for (Element lotteryElement : lotteryElements) {
-            String regionName = lotteryElement.select("div.title > a").get(0).text();
-            String dateNow = lotteryElement.select("div.title > a").get(1).text();
-            if (dateNow.equals(dateCheck) && (regionName.equals("KẾT QUẢ XỔ SỐ Miền Nam") || regionName.equals("KẾT QUẢ XỔ SỐ Miền Trung"))) {
-                Elements lotteryLeft = lotteryElement.select("div.content table[class=leftcl] tbody");
-                Elements lotteryRight = lotteryElement.select("div.content table[class=rightcl] tbody");
+        try {
+            Document doc = Jsoup.connect(url).get();
+            Elements lotteryElements = doc.select("div.box_kqxs");
+            List<LotteryResults> results = new ArrayList<>();
+            for (Element lotteryElement : lotteryElements) {
+                String regionName = lotteryElement.select("div.title > a").get(0).text();
+                String dateNow = lotteryElement.select("div.title > a").get(1).text();
+                if (dateNow.equals(dateCheck) && (regionName.equals("KẾT QUẢ XỔ SỐ Miền Nam") || regionName.equals("KẾT QUẢ XỔ SỐ Miền Trung"))) {
+                    Elements lotteryLeft = lotteryElement.select("div.content table[class=leftcl] tbody");
+                    Elements lotteryRight = lotteryElement.select("div.content table[class=rightcl] tbody");
 
-                for (Element e : lotteryRight) {
-                    String lotteryId = e.select("td.matinh").text();
-                    String province = e.select("td.tinh").text();
-                    Elements rows = e.select("tr");
-                    for (int i = 3; i < rows.size() + 1; i++) {
-                        String prize = lotteryLeft.select("tr:nth-child(" + i + ")").text();
-                        List<String> numbers = e.select("tr:nth-child(" + i + ") td div").eachText();
+                    for (Element e : lotteryRight) {
+                        String lotteryId = e.select("td.matinh").text();
+                        String province = e.select("td.tinh").text();
+                        Elements rows = e.select("tr");
+                        for (int i = 3; i < rows.size() + 1; i++) {
+                            String prize = lotteryLeft.select("tr:nth-child(" + i + ")").text();
+                            List<String> numbers = e.select("tr:nth-child(" + i + ") td div").eachText();
+                            for (String number : numbers) {
+                                results.add(new LotteryResults(date, regionName, lotteryId, province, prize, number));
+                            }
+                        }
+                    }
+                } else if (dateNow.equals(dateCheck) && regionName.equals("KẾT QUẢ XỔ SỐ Miền Bắc")) {
+                    Elements lotteryContent = lotteryElement.select("div.content table[class=bkqtinhmienbac] tbody");
+                    Elements rows = lotteryContent.select("tr");
+
+                    String thu = lotteryContent.select("tr:nth-child(1) td").first().text();
+                    String province = getProvinceForMB(thu);
+                    String lotteryId = "XSMB";
+                    List<String> codes = List.of(lotteryContent.select("tr:nth-child(1) td div.loaive_content").text().split("-"));
+                    for (String code : codes) {
+                        results.add(new LotteryResults(date, regionName, lotteryId, province, "Mã ĐB", code));
+                    }
+
+                    for (int i = 2; i < rows.size() + 1; i++) {
+                        String prize = lotteryContent.select("tr:nth-child(" + i + ") td").get(0).text();
+                        List<String> numbers = lotteryContent.select("tr:nth-child(" + i + ") td:nth-child(2) div").eachText();
                         for (String number : numbers) {
                             results.add(new LotteryResults(date, regionName, lotteryId, province, prize, number));
                         }
                     }
                 }
-            } else if (dateNow.equals(dateCheck) && regionName.equals("KẾT QUẢ XỔ SỐ Miền Bắc")) {
-                Elements lotteryContent = lotteryElement.select("div.content table[class=bkqtinhmienbac] tbody");
-                Elements rows = lotteryContent.select("tr");
-
-                String thu = lotteryContent.select("tr:nth-child(1) td").first().text();
-                String province = getProvinceForMB(thu);
-                String lotteryId = "XSMB";
-                List<String> codes = List.of(lotteryContent.select("tr:nth-child(1) td div.loaive_content").text().split("-"));
-                for (String code : codes) {
-                    results.add(new LotteryResults(date, regionName, lotteryId, province, "Mã ĐB", code));
-                }
-
-                for (int i = 2; i < rows.size() + 1; i++) {
-                    String prize = lotteryContent.select("tr:nth-child(" + i + ") td").get(0).text();
-                    List<String> numbers = lotteryContent.select("tr:nth-child(" + i + ") td:nth-child(2) div").eachText();
-                    for (String number : numbers) {
-                        results.add(new LotteryResults(date, regionName, lotteryId, province, prize, number));
-                    }
-                }
             }
+            dao.insertStatus(connection, config.getId(), "CRAWLED", date);
+            System.out.println("Crawl successfully!");
+            writeDataToExcel(results, config.getLocation(), date);
+        } catch (IOException e) {
+            e.printStackTrace();
+            SendEmailError.sendErrorEmail("CRAWLING", "Error while crawling data: " + e.getMessage());
         }
-        dao.insertStatus(connection, config.getId(), "CRAWLED", date);
-        System.out.print("Crawl successfully! ");
-        writeDataToExcel(results, config.getLocation(), date);
     }
 
     private String formatDate(String dateString, String pattern) {
@@ -150,9 +155,10 @@ public class Controller {
             try (FileOutputStream fos = new FileOutputStream(excelFilePath)) {
                 workbook.write(fos);
                 fos.close();
-                System.out.println(excelFilePath);
+                System.out.println("Data has been saved: " + excelFilePath);
             } catch (IOException e) {
                 e.printStackTrace();
+                SendEmailError.sendErrorEmail("WRITING DATA", "Error while writing data to file: " + e.getMessage());
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -167,6 +173,7 @@ public class Controller {
                 System.out.println("Đã tạo thư mục: " + directoryPath);
             } catch (IOException e) {
                 e.printStackTrace();
+                SendEmailError.sendErrorEmail("CREATING DIRECTORY", "Error while creating directory: " + e.getMessage());
             }
         }
     }
@@ -206,6 +213,7 @@ public class Controller {
             System.out.println("Extract successfully!");
         } catch (IOException | SQLException e) {
             e.printStackTrace();
+            SendEmailError.sendErrorEmail("READING FILE", "Error while reading file data: " + e.getMessage());
         }
     }
 
@@ -232,58 +240,70 @@ public class Controller {
             Optional<File> latestExcelFile = findLatestExcelFile(config.getLocation());
             if (latestExcelFile.isPresent()) {
                 File excelFile = latestExcelFile.get();
-//                System.out.println("Tệp Excel mới nhất là: " + excelFile.getAbsolutePath());
                 extractToStaging(excelFile.getAbsolutePath(), connection);
                 dao.insertStatus(connection, config.getId(), "EXTRACTED", date);
             } else {
                 System.out.println("Không tìm thấy tệp Excel trong thư mục.");
                 dao.insertStatus(connection, config.getId(), "ERROR", date);
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         } catch (SQLException e) {
+            e.printStackTrace();
+            SendEmailError.sendErrorEmail("EXTRACTING", "Error while extracting data: " + e.getMessage());
             throw new RuntimeException(e);
         }
     }
 
+    // transform data
     public void transformData(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException, SQLException {
+        // 13.1. insert status "TRANSFORMING"
         dao.insertStatus(connection, idConfig, "TRANSFORMING", date);
 
+        // thực hiện stored procedure TransformData
         try (CallableStatement callableStatement = connection.prepareCall("{CALL TransformData()}")) {
-            // Thực hiện stored procedure
             callableStatement.execute();
 
+            // 13.18. insert status "TRANSFORMED"
             dao.insertStatus(connection, idConfig, "TRANSFORMED", date);
-            System.out.println("transform success!");
+            System.out.println("Transform successfully!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
+            // 25. insert status "ERROR"
             dao.insertStatus(connection, idConfig, "ERROR", date);
+            // 26. gửi email báo lỗi
             SendEmailError.sendErrorEmail("TRANSFORMING", "Error while transforming data: " + e.getMessage());
+            // 24. đóng kết nối
             connection.close();
             throw new RuntimeException(e);
         }
     }
 
+    // load to warehouse
     public void loadToWH(int idConfig, Connection connection, String date,LotteryResultsDAO dao) throws IOException, SQLException {
+        // 14.1. insert status "WLOADING"
         dao.insertStatus(connection, idConfig, "WLOADING", date);
 
+        // thực hiện stored procedure LoadDataToWH
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadDataToWH()}")) {
-            // Thực hiện stored procedure
             callableStatement.execute();
 
+            // 14.3 insert status "WLOADED"
             dao.insertStatus(connection, idConfig, "WLOADED", date);
-            System.out.println("load to warehouse success!");
+            System.out.println("Load to warehouse successfully!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
+            // 25. insert status "ERROR" và gửi email báo lỗi
             dao.insertStatus(connection, idConfig, "ERROR", date);
+            // 26. gửi email báo lỗi
             SendEmailError.sendErrorEmail("WLOADING", "Error while loading data to warehouse: " + e.getMessage());
+            // 24. đóng kết nối
             connection.close();
             throw new RuntimeException(e);
         }
     }
 
+    // aggregate data
     public void aggregateLottery(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException, SQLException {
         dao.insertStatus(connection, idConfig, "AGGREGATING",date);
 
@@ -291,17 +311,19 @@ public class Controller {
             // Thực hiện stored procedure
             callableStatement.execute();
 
-            dao.insertStatus(connection, idConfig, "AGGREGATED",date);
-            System.out.println("aggregate success!");
+            dao.insertStatus(connection, idConfig, "AGGREGATED", date);
+            System.out.println("Aggregate successfully!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
-            dao.insertStatus(connection, idConfig, "ERROR",date);
+            dao.insertStatus(connection, idConfig, "ERROR", date);
             SendEmailError.sendErrorEmail("AGGREGATING", "Error while aggregating data: " + e.getMessage());
             connection.close();
             throw new RuntimeException(e);
         }
     }
+
+    // load to mart
     public void loadToMart(int idConfig, Connection connection,String date,LotteryResultsDAO dao) throws IOException, SQLException {
         dao.insertStatus(connection, idConfig, "MLOADING",date);
 
@@ -309,14 +331,14 @@ public class Controller {
             // Thực hiện stored procedure
             callableStatement.execute();
 
-            dao.insertStatus(connection, idConfig, "MLOADED",date);
-            dao.insertStatus(connection, idConfig, "FINISHED",date);
-            System.out.println("load to mart success!");
-            System.out.println("finished!");
+            dao.insertStatus(connection, idConfig, "MLOADED", date);
+            dao.insertStatus(connection, idConfig, "FINISHED", date);
+            System.out.println("Load to mart successfully!");
+            System.out.println("Finished!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
-            dao.insertStatus(connection, idConfig, "ERROR",date);
+            dao.insertStatus(connection, idConfig, "ERROR", date);
             SendEmailError.sendErrorEmail("MLOADING", "Error while loading data to mart: " + e.getMessage());
             connection.close();
             throw new RuntimeException(e);
