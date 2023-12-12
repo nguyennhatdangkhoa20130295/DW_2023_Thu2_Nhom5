@@ -59,8 +59,5 @@ public class SendEmailError {
         }
     }
 
-    public static void main(String[] args) {
-        sendErrorEmail("crawl","This is a test error message.");
-    }
 }
 

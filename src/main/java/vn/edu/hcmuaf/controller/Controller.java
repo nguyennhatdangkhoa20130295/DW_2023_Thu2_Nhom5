@@ -29,12 +29,12 @@ import java.util.stream.Stream;
 
 
 public class Controller {
-    public void crawlData(Connection connection, String date, DataFileConfig config, LotteryResultsDAO dao) throws IOException {
-//        11.1. Insert vào bảng control.data_files dòng dữ liệu với status = CRAWLING
+    public void crawlData(Connection connection, String date, DataFileConfig config, LotteryResultsDAO dao) throws IOException, SQLException {
+        // 11.1. Insert vào bảng control.data_files dòng dữ liệu với status = CRAWLING
         dao.insertStatus(connection, config.getId(), "CRAWLING", date);
         String dateObj = formatDate(date, "dd-MM-yyyy");
         String dateCheck = formatDate(date, "dd/MM/yyyy");
-//        11.2. Trích xuất và xử lý dữ liệu từ trang web thông qua các tham số truyền vào: source_path của đối tượng DataFileConfig và date
+        // 11.2. Trích xuất và xử lý dữ liệu từ trang web thông qua các tham số truyền vào: source_path của đối tượng DataFileConfig và date
         String url = config.getSource_path() + dateObj + ".html";
         try {
             Document doc = Jsoup.connect(url).get();
@@ -80,17 +80,19 @@ public class Controller {
                     }
                 }
             }
-//            11.3. Lưu dữ liệu đã trích xuất và xử lý vào file Excel
+            // 11.3. Lưu dữ liệu đã trích xuất và xử lý vào file Excel
             writeDataToExcel(results, connection, config, date);
-//            11.11. Insert vào bảng control.data_files dòng dữ liệu với status = CRAWLED
+            // 11.11. Insert vào bảng control.data_files dòng dữ liệu với status = CRAWLED
             dao.insertStatus(connection, config.getId(), "CRAWLED", date);
             System.out.println("Crawl successfully!");
         } catch (IOException e) {
             e.printStackTrace();
-//            25. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+            // 25. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
             dao.insertStatus(connection, config.getId(), "ERROR", date);
-//            26. Gửi mail thông báo lỗi
+            // 26. Gửi mail thông báo lỗi
             SendEmailError.sendErrorEmail("CRAWLING", "Error while crawling data: " + e.getMessage());
+            // 24. Đóng kết nối db_control
+            connection.close();
         }
     }
 
@@ -128,11 +130,11 @@ public class Controller {
         return result;
     }
 
-    public void writeDataToExcel(List<LotteryResults> lotteryResults, Connection connection, DataFileConfig config, String date) {
-//        11.4. Kiểm tra xem thư mục cha chứa file excel đã tồn tại hay chưa?
+    public void writeDataToExcel(List<LotteryResults> lotteryResults, Connection connection, DataFileConfig config, String date) throws SQLException {
+        // 11.4. Kiểm tra xem thư mục cha chứa file excel đã tồn tại hay chưa?
         createDirectoryIfNotExists(connection, config, date);
 
-//        11.5. Lưu file với đường dẫn: D:\\+location+\\crawl_lottery_results_+date+.xlsx
+        // 11.5. Lưu file với đường dẫn: D:\\+location+\\crawl_lottery_results_+date+.xlsx
         String excelFilePath = config.getLocation() + "\\crawl_lottery_results_" + date + ".xlsx";
         try {
             XSSFWorkbook workbook = new XSSFWorkbook();
@@ -160,39 +162,43 @@ public class Controller {
             }
 
             // Lưu file
-//            11.9. Lưu thành công?
+            // 11.9. Lưu thành công?
             try (FileOutputStream fos = new FileOutputStream(excelFilePath)) {
                 workbook.write(fos);
                 fos.close();
-//                11.10. In ra "Data has been saved: " + đường dẫn đã lưu
+                // 11.10. In ra "Data has been saved: " + đường dẫn đã lưu
                 System.out.println("Data has been saved: " + excelFilePath);
             } catch (IOException e) {
                 e.printStackTrace();
-//                11.12. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+                // 11.12. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
                 new LotteryResultsDAO().insertStatus(connection, config.getId(), "ERROR", date);
-//                11.13. Gửi mail thông báo lỗi
+                // 11.13. Gửi mail thông báo lỗi
                 SendEmailError.sendErrorEmail("WRITING DATA", "Error while writing data to file: " + e.getMessage());
+                // 24. Đóng kết nối db_control
+                connection.close();
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void createDirectoryIfNotExists(Connection connection, DataFileConfig config, String date) {
+    private void createDirectoryIfNotExists(Connection connection, DataFileConfig config, String date) throws SQLException {
         Path path = Paths.get(config.getLocation());
-//        11.6. Tạo tất cả các thư mục cha nếu chúng không tồn tại
+        // 11.6. Tạo tất cả các thư mục cha nếu chúng không tồn tại
         if (!Files.exists(path)) {
-//            11.7. Tạo thư mục thành công?
+            // 11.7. Tạo thư mục thành công?
             try {
                 Files.createDirectories(path);
-//                11.8. In ra màn hình thông báo đã tạo thư mục thành công
+                // 11.8. In ra màn hình thông báo đã tạo thư mục thành công
                 System.out.println("Đã tạo thư mục: " + config.getLocation());
             } catch (IOException e) {
                 e.printStackTrace();
-//                11.12. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+                // 11.12. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
                 new LotteryResultsDAO().insertStatus(connection, config.getId(), "ERROR", date);
-//                11.13. Gửi mail thông báo lỗi
+                // 11.13. Gửi mail thông báo lỗi
                 SendEmailError.sendErrorEmail("CREATING DIRECTORY", "Error while creating directory: " + e.getMessage());
+                // 24. Đóng kết nối db_control
+                connection.close();
             }
         }
     }
@@ -252,74 +258,92 @@ public class Controller {
         }
     }
 
-    public void truncateAndInsertToStaging(Connection connection, DataFileConfig config, String date, LotteryResultsDAO dao) throws IOException {
-//        12.1. Insert vào bảng control.data_files dòng dữ liệu với status = EXTRACTING
+    public void truncateAndInsertToStaging(Connection connection, DataFileConfig config, String date, LotteryResultsDAO dao) throws IOException, SQLException {
+        // 12.1. Insert vào bảng control.data_files dòng dữ liệu với status = EXTRACTING
         dao.insertStatus(connection, config.getId(), "EXTRACTING", date);
-//        12.2. Thực hiện TRUNCATE bảng data_warehouse.lottery_results_staging
+        // 12.2. Thực hiện TRUNCATE bảng data_warehouse.lottery_results_staging
         try (CallableStatement callableStatement = connection.prepareCall("{CALL truncate_staging_table()}")) {
             callableStatement.execute();
-//            12.3. Tìm kiếm file excel kết quả xổ số mới nhất trong thư mục lưu trữ có location là tham số location của đối tượng DataFileConfig
+            // 12.3. Tìm kiếm file excel kết quả xổ số mới nhất trong thư mục lưu trữ có location là tham số location của đối tượng DataFileConfig
             Optional<File> latestExcelFile = findLatestExcelFile(config.getLocation());
-//            12.4. Kiểm tra xem có tệp Excel mới nhất được tìm thấy hay không?
+            // 12.4. Kiểm tra xem có tệp Excel mới nhất được tìm thấy hay không?
             if (latestExcelFile.isPresent()) {
                 File excelFile = latestExcelFile.get();
-//                12.5. Insert dữ liệu vào bảng data_staging.lottery_results_staging
+                // 12.5. Insert dữ liệu vào bảng data_staging.lottery_results_staging
                 extractToStaging(excelFile.getAbsolutePath(), connection);
-//                12.6. Insert vào bảng control.data_files dòng dữ liệu với status = EXTRACTED
+                // 12.6. Insert vào bảng control.data_files dòng dữ liệu với status = EXTRACTED
                 dao.insertStatus(connection, config.getId(), "EXTRACTED", date);
             } else {
                 System.out.println("Không tìm thấy tệp Excel trong thư mục.");
-//                12.7. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+                // 12.7. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
                 dao.insertStatus(connection, config.getId(), "ERROR", date);
-//                12.8. Gửi mail thông báo lỗi
+                // 12.8. Gửi mail thông báo lỗi
                 SendEmailError.sendErrorEmail("FILE NOT FOUND", "Error while finding excel file.");
             }
         } catch (SQLException e) {
             e.printStackTrace();
-//            Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+            // 25. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
             dao.insertStatus(connection, config.getId(), "ERROR", date);
+            // 26. Gửi mail báo lỗi
             SendEmailError.sendErrorEmail("EXTRACTING", "Error while extracting data: " + e.getMessage());
+            // 24. Đóng kết nối db_control
+            connection.close();
             throw new RuntimeException(e);
         }
     }
 
-    public void transformData(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException {
+    // transform data
+    public void transformData(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException, SQLException {
+        // 13.1. insert status "TRANSFORMING"
         dao.insertStatus(connection, idConfig, "TRANSFORMING", date);
 
+        // thực hiện stored procedure TransformData
         try (CallableStatement callableStatement = connection.prepareCall("{CALL TransformData()}")) {
-            // Thực hiện stored procedure
             callableStatement.execute();
 
+            // 13.18. insert status "TRANSFORMED"
             dao.insertStatus(connection, idConfig, "TRANSFORMED", date);
             System.out.println("Transform successfully!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
+            // 25. insert status "ERROR"
             dao.insertStatus(connection, idConfig, "ERROR", date);
+            // 26. gửi email báo lỗi
             SendEmailError.sendErrorEmail("TRANSFORMING", "Error while transforming data: " + e.getMessage());
+            // 24. đóng kết nối
+            connection.close();
             throw new RuntimeException(e);
         }
     }
 
-    public void loadToWH(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException {
+    // load to warehouse
+    public void loadToWH(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException, SQLException {
+        // 14.1. insert status "WLOADING"
         dao.insertStatus(connection, idConfig, "WLOADING", date);
 
+        // thực hiện stored procedure LoadDataToWH
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadDataToWH()}")) {
-            // Thực hiện stored procedure
             callableStatement.execute();
 
+            // 14.3 insert status "WLOADED"
             dao.insertStatus(connection, idConfig, "WLOADED", date);
             System.out.println("Load to warehouse successfully!");
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
+            // 25. insert status "ERROR" và gửi email báo lỗi
             dao.insertStatus(connection, idConfig, "ERROR", date);
+            // 26. gửi email báo lỗi
             SendEmailError.sendErrorEmail("WLOADING", "Error while loading data to warehouse: " + e.getMessage());
+            // 24. đóng kết nối
+            connection.close();
             throw new RuntimeException(e);
         }
     }
 
-    public void aggregateLottery(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException {
+    // aggregate data
+    public void aggregateLottery(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException, SQLException {
         dao.insertStatus(connection, idConfig, "AGGREGATING", date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL AggregateTable()}")) {
@@ -333,11 +357,13 @@ public class Controller {
             e.printStackTrace();
             dao.insertStatus(connection, idConfig, "ERROR", date);
             SendEmailError.sendErrorEmail("AGGREGATING", "Error while aggregating data: " + e.getMessage());
+            connection.close();
             throw new RuntimeException(e);
         }
     }
 
-    public void loadToMart(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException {
+    // load to mart
+    public void loadToMart(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException, SQLException {
         dao.insertStatus(connection, idConfig, "MLOADING", date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadToDM()}")) {
@@ -353,8 +379,10 @@ public class Controller {
             e.printStackTrace();
             dao.insertStatus(connection, idConfig, "ERROR", date);
             SendEmailError.sendErrorEmail("MLOADING", "Error while loading data to mart: " + e.getMessage());
+            connection.close();
             throw new RuntimeException(e);
         }
     }
+
 }
 
