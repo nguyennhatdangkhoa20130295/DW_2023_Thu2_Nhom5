@@ -30,9 +30,11 @@ import java.util.stream.Stream;
 
 public class Controller {
     public void crawlData(Connection connection, String date, DataFileConfig config, LotteryResultsDAO dao) throws IOException {
+//        11.1. Insert vào bảng control.data_files dòng dữ liệu với status = CRAWLING
         dao.insertStatus(connection, config.getId(), "CRAWLING", date);
         String dateObj = formatDate(date, "dd-MM-yyyy");
         String dateCheck = formatDate(date, "dd/MM/yyyy");
+//        11.2. Trích xuất và xử lý dữ liệu từ trang web thông qua các tham số truyền vào: source_path của đối tượng DataFileConfig và date
         String url = config.getSource_path() + dateObj + ".html";
         try {
             Document doc = Jsoup.connect(url).get();
@@ -78,11 +80,16 @@ public class Controller {
                     }
                 }
             }
+//            11.3. Lưu dữ liệu đã trích xuất và xử lý vào file Excel
+            writeDataToExcel(results, connection, config, date);
+//            11.11. Insert vào bảng control.data_files dòng dữ liệu với status = CRAWLED
             dao.insertStatus(connection, config.getId(), "CRAWLED", date);
             System.out.println("Crawl successfully!");
-            writeDataToExcel(results, config.getLocation(), date);
         } catch (IOException e) {
             e.printStackTrace();
+//            25. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+            dao.insertStatus(connection, config.getId(), "ERROR", date);
+//            26. Gửi mail thông báo lỗi
             SendEmailError.sendErrorEmail("CRAWLING", "Error while crawling data: " + e.getMessage());
         }
     }
@@ -121,11 +128,12 @@ public class Controller {
         return result;
     }
 
-    public void writeDataToExcel(List<LotteryResults> lotteryResults, String location, String date) {
-        String excelFilePath = location + "\\crawl_lottery_results_" + date + ".xlsx";
+    public void writeDataToExcel(List<LotteryResults> lotteryResults, Connection connection, DataFileConfig config, String date) {
+//        11.4. Kiểm tra xem thư mục cha chứa file excel đã tồn tại hay chưa?
+        createDirectoryIfNotExists(connection, config, date);
 
-        createDirectoryIfNotExists(location);
-
+//        11.5. Lưu file với đường dẫn: D:\\+location+\\crawl_lottery_results_+date+.xlsx
+        String excelFilePath = config.getLocation() + "\\crawl_lottery_results_" + date + ".xlsx";
         try {
             XSSFWorkbook workbook = new XSSFWorkbook();
             XSSFSheet spreadsheet = workbook.createSheet("KQXS");
@@ -152,12 +160,17 @@ public class Controller {
             }
 
             // Lưu file
+//            11.9. Lưu thành công?
             try (FileOutputStream fos = new FileOutputStream(excelFilePath)) {
                 workbook.write(fos);
                 fos.close();
+//                11.10. In ra "Data has been saved: " + đường dẫn đã lưu
                 System.out.println("Data has been saved: " + excelFilePath);
             } catch (IOException e) {
                 e.printStackTrace();
+//                11.12. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+                new LotteryResultsDAO().insertStatus(connection, config.getId(), "ERROR", date);
+//                11.13. Gửi mail thông báo lỗi
                 SendEmailError.sendErrorEmail("WRITING DATA", "Error while writing data to file: " + e.getMessage());
             }
         } catch (Exception e) {
@@ -165,14 +178,20 @@ public class Controller {
         }
     }
 
-    private void createDirectoryIfNotExists(String directoryPath) {
-        Path path = Paths.get(directoryPath);
+    private void createDirectoryIfNotExists(Connection connection, DataFileConfig config, String date) {
+        Path path = Paths.get(config.getLocation());
+//        11.6. Tạo tất cả các thư mục cha nếu chúng không tồn tại
         if (!Files.exists(path)) {
+//            11.7. Tạo thư mục thành công?
             try {
                 Files.createDirectories(path);
-                System.out.println("Đã tạo thư mục: " + directoryPath);
+//                11.8. In ra màn hình thông báo đã tạo thư mục thành công
+                System.out.println("Đã tạo thư mục: " + config.getLocation());
             } catch (IOException e) {
                 e.printStackTrace();
+//                11.12. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+                new LotteryResultsDAO().insertStatus(connection, config.getId(), "ERROR", date);
+//                11.13. Gửi mail thông báo lỗi
                 SendEmailError.sendErrorEmail("CREATING DIRECTORY", "Error while creating directory: " + e.getMessage());
             }
         }
@@ -234,20 +253,31 @@ public class Controller {
     }
 
     public void truncateAndInsertToStaging(Connection connection, DataFileConfig config, String date, LotteryResultsDAO dao) throws IOException {
+//        12.1. Insert vào bảng control.data_files dòng dữ liệu với status = EXTRACTING
         dao.insertStatus(connection, config.getId(), "EXTRACTING", date);
+//        12.2. Thực hiện TRUNCATE bảng data_warehouse.lottery_results_staging
         try (CallableStatement callableStatement = connection.prepareCall("{CALL truncate_staging_table()}")) {
             callableStatement.execute();
+//            12.3. Tìm kiếm file excel kết quả xổ số mới nhất trong thư mục lưu trữ có location là tham số location của đối tượng DataFileConfig
             Optional<File> latestExcelFile = findLatestExcelFile(config.getLocation());
+//            12.4. Kiểm tra xem có tệp Excel mới nhất được tìm thấy hay không?
             if (latestExcelFile.isPresent()) {
                 File excelFile = latestExcelFile.get();
+//                12.5. Insert dữ liệu vào bảng data_staging.lottery_results_staging
                 extractToStaging(excelFile.getAbsolutePath(), connection);
+//                12.6. Insert vào bảng control.data_files dòng dữ liệu với status = EXTRACTED
                 dao.insertStatus(connection, config.getId(), "EXTRACTED", date);
             } else {
                 System.out.println("Không tìm thấy tệp Excel trong thư mục.");
+//                12.7. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
                 dao.insertStatus(connection, config.getId(), "ERROR", date);
+//                12.8. Gửi mail thông báo lỗi
+                SendEmailError.sendErrorEmail("FILE NOT FOUND", "Error while finding excel file.");
             }
         } catch (SQLException e) {
             e.printStackTrace();
+//            Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+            dao.insertStatus(connection, config.getId(), "ERROR", date);
             SendEmailError.sendErrorEmail("EXTRACTING", "Error while extracting data: " + e.getMessage());
             throw new RuntimeException(e);
         }
