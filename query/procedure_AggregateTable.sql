@@ -1,10 +1,11 @@
+-- 15.3. join bảng fact với các bảng dim lại và điều kiện là kết quả của 30 ngày tính từ ngày hiện tại
 CREATE DEFINER=`root`@`localhost` PROCEDURE `AggregateTable`()
 BEGIN
     SET @current_date = CURDATE();
     SET @start_date = DATE_SUB(@current_date, INTERVAL 30 DAY);
 
 TRUNCATE TABLE data_warehouse.lottery_results;
-
+-- 15.4. insert vào bảng lottery_results trong data_warehouse
 INSERT INTO data_warehouse.lottery_results (id, date, region, lottery_code, province, prize, number)
 SELECT
     fact.id,
