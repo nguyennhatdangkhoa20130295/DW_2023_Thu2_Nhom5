@@ -344,12 +344,14 @@ public class Controller {
 
     // aggregate data
     public void aggregateLottery(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException, SQLException {
+        // 15.1. insert data_files với status = AGGREGATING
         dao.insertStatus(connection, idConfig, "AGGREGATING", date);
-
+        //15.2. truncate bảng lottery_results
         try (CallableStatement callableStatement = connection.prepareCall("{CALL AggregateTable()}")) {
             // Thực hiện stored procedure
+            // 15.4. insert vào bảng lottery_results trong data_warehouse
             callableStatement.execute();
-
+            // 15.5. insert data_files với status = AGGREGATED
             dao.insertStatus(connection, idConfig, "AGGREGATED", date);
             System.out.println("Aggregate successfully!");
         } catch (SQLException e) {
@@ -364,13 +366,15 @@ public class Controller {
 
     // load to mart
     public void loadToMart(int idConfig, Connection connection, String date, LotteryResultsDAO dao) throws IOException, SQLException {
+        // 16.1 insert data_files với status = MLOADING
         dao.insertStatus(connection, idConfig, "MLOADING", date);
 
         try (CallableStatement callableStatement = connection.prepareCall("{CALL LoadToDM()}")) {
             // Thực hiện stored procedure
             callableStatement.execute();
-
+            // 16.11 insert data_files với status = MLOADED
             dao.insertStatus(connection, idConfig, "MLOADED", date);
+            // 16.12 insert data_files với status = FINISHED
             dao.insertStatus(connection, idConfig, "FINISHED", date);
             System.out.println("Load to mart successfully!");
             System.out.println("Finished!");
