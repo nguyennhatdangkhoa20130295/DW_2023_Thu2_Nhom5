@@ -8,7 +8,6 @@ import java.util.Properties;
 public class SendEmailError {
 
     public static void sendErrorEmail(String step, String message) {
-        boolean test = false;
         String subject = "Thông báo lỗi Data WareHouse Kết Quả Xổ Số";
         String text = "<div style=\"background-color:#f2f2f2;padding:10px; font-size: 22px\">\n" +
                 "  <p> Hệ thống đang gặp lỗi ở bước: <span style=\"font-weight: bold\">"+step+"</span></p>\n" +
@@ -52,7 +51,6 @@ public class SendEmailError {
             mess.setContent(text, "text/html; charset=UTF-8");
             //send the message
             Transport.send(mess);
-            test=true;
             System.out.println("đã gửi mail");
         } catch (Exception e) {
             e.printStackTrace();

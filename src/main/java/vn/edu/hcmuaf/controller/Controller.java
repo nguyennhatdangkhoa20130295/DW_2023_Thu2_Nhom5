@@ -332,7 +332,7 @@ public class Controller {
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
-            // 25. insert status "ERROR" và gửi email báo lỗi
+            // 25. insert status "ERROR"
             dao.insertStatus(connection, idConfig, "ERROR", date);
             // 26. gửi email báo lỗi
             SendEmailError.sendErrorEmail("WLOADING", "Error while loading data to warehouse: " + e.getMessage());
@@ -357,8 +357,11 @@ public class Controller {
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
+            // 25. insert data_files với status = ERROR
             dao.insertStatus(connection, idConfig, "ERROR", date);
+            // 26. gửi email báo lỗi
             SendEmailError.sendErrorEmail("AGGREGATING", "Error while aggregating data: " + e.getMessage());
+            // 24. đóng kết nối
             connection.close();
             throw new RuntimeException(e);
         }
@@ -381,8 +384,11 @@ public class Controller {
         } catch (SQLException e) {
             // Xử lý lỗi khi thực hiện stored procedure
             e.printStackTrace();
+            // 25. insert data_files với status = ERROR
             dao.insertStatus(connection, idConfig, "ERROR", date);
+            // 26. gửi email báo lỗi
             SendEmailError.sendErrorEmail("MLOADING", "Error while loading data to mart: " + e.getMessage());
+            // 24. đóng kết nối
             connection.close();
             throw new RuntimeException(e);
         }
