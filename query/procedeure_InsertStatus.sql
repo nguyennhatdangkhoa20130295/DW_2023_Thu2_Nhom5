@@ -8,19 +8,19 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `InsertStatus`(
 )
 BEGIN
     DECLARE formatted_date VARCHAR(255);
-		DECLARE lowerCaseStatus VARCHAR(255);
+	DECLARE lowerCaseStatus VARCHAR(255);
 
-SELECT created_at INTO formatted_date
-FROM data_files
-WHERE df_config_id = id_config
-ORDER BY created_at DESC
+    SELECT created_at INTO formatted_date
+    FROM data_files
+    WHERE df_config_id = id_config
+    ORDER BY created_at DESC
     LIMIT 1;
 
-SET formatted_date = DATE_FORMAT(date, '%d_%m_%Y');
+    SET formatted_date = DATE_FORMAT(date, '%d_%m_%Y');
 		
-		SET lowerCaseStatus = LOWER(`status`);
+	SET lowerCaseStatus = LOWER(`status`);
 		
-		SET @df_name = CONCAT('LotteryResults_', formatted_date);
+	SET @df_name = CONCAT('LotteryResults_', formatted_date);
     SET @note = CONCAT(
     CASE
         WHEN lowerCaseStatus LIKE '%ing' THEN 'Data is'
@@ -29,8 +29,8 @@ SET formatted_date = DATE_FORMAT(date, '%d_%m_%Y');
     END,
     ' ',
     lowerCaseStatus
-		);
+	);
 
-INSERT INTO data_files(df_config_id, name, `status`, note)
-VALUES (id_config, @df_name, `status`, @note);
+    INSERT INTO data_files(df_config_id, name, `status`, note)
+    VALUES (id_config, @df_name, `status`, @note);
 END

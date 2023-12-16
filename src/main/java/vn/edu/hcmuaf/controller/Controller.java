@@ -30,7 +30,7 @@ import java.util.stream.Stream;
 
 public class Controller {
     public void crawlData(Connection connection, String date, DataFileConfig config, LotteryResultsDAO dao) throws IOException, SQLException {
-        // 11.1. Insert vào bảng control.data_files dòng dữ liệu với status = CRAWLING
+        // 11.1. Insert vào bảng db_control.data_files dòng dữ liệu với status = CRAWLING
         dao.insertStatus(connection, config.getId(), "CRAWLING", date);
         String dateObj = formatDate(date, "dd-MM-yyyy");
         String dateCheck = formatDate(date, "dd/MM/yyyy");
@@ -82,12 +82,12 @@ public class Controller {
             }
             // 11.3. Lưu dữ liệu đã trích xuất và xử lý vào file Excel
             writeDataToExcel(results, connection, config, date);
-            // 11.11. Insert vào bảng control.data_files dòng dữ liệu với status = CRAWLED
+            // 11.11. Insert vào bảng db_control.data_files dòng dữ liệu với status = CRAWLED
             dao.insertStatus(connection, config.getId(), "CRAWLED", date);
             System.out.println("Crawl successfully!");
         } catch (IOException e) {
             e.printStackTrace();
-            // 25. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+            // 25. Insert vào bảng db_control.data_files dòng dữ liệu với status = ERROR
             dao.insertStatus(connection, config.getId(), "ERROR", date);
             // 26. Gửi mail thông báo lỗi
             SendEmailError.sendErrorEmail("CRAWLING", "Error while crawling data: " + e.getMessage());
@@ -170,7 +170,7 @@ public class Controller {
                 System.out.println("Data has been saved: " + excelFilePath);
             } catch (IOException e) {
                 e.printStackTrace();
-                // 11.12. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+                // 11.12. Insert vào bảng db_control.data_files dòng dữ liệu với status = ERROR
                 new LotteryResultsDAO().insertStatus(connection, config.getId(), "ERROR", date);
                 // 11.13. Gửi mail thông báo lỗi
                 SendEmailError.sendErrorEmail("WRITING DATA", "Error while writing data to file: " + e.getMessage());
@@ -193,7 +193,7 @@ public class Controller {
                 System.out.println("Đã tạo thư mục: " + config.getLocation());
             } catch (IOException e) {
                 e.printStackTrace();
-                // 11.12. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+                // 11.12. Insert vào bảng db_control.data_files dòng dữ liệu với status = ERROR
                 new LotteryResultsDAO().insertStatus(connection, config.getId(), "ERROR", date);
                 // 11.13. Gửi mail thông báo lỗi
                 SendEmailError.sendErrorEmail("CREATING DIRECTORY", "Error while creating directory: " + e.getMessage());
@@ -259,7 +259,7 @@ public class Controller {
     }
 
     public void truncateAndInsertToStaging(Connection connection, DataFileConfig config, String date, LotteryResultsDAO dao) throws IOException, SQLException {
-        // 12.1. Insert vào bảng control.data_files dòng dữ liệu với status = EXTRACTING
+        // 12.1. Insert vào bảng db_control.data_files dòng dữ liệu với status = EXTRACTING
         dao.insertStatus(connection, config.getId(), "EXTRACTING", date);
         // 12.2. Thực hiện TRUNCATE bảng data_warehouse.lottery_results_staging
         try (CallableStatement callableStatement = connection.prepareCall("{CALL truncate_staging_table()}")) {
@@ -271,18 +271,18 @@ public class Controller {
                 File excelFile = latestExcelFile.get();
                 // 12.5. Insert dữ liệu vào bảng data_staging.lottery_results_staging
                 extractToStaging(excelFile.getAbsolutePath(), connection);
-                // 12.6. Insert vào bảng control.data_files dòng dữ liệu với status = EXTRACTED
+                // 12.6. Insert vào bảng db_control.data_files dòng dữ liệu với status = EXTRACTED
                 dao.insertStatus(connection, config.getId(), "EXTRACTED", date);
             } else {
                 System.out.println("Không tìm thấy tệp Excel trong thư mục.");
-                // 12.7. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+                // 12.7. Insert vào bảng db_control.data_files dòng dữ liệu với status = ERROR
                 dao.insertStatus(connection, config.getId(), "ERROR", date);
                 // 12.8. Gửi mail thông báo lỗi
                 SendEmailError.sendErrorEmail("FILE NOT FOUND", "Error while finding excel file.");
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            // 25. Insert vào bảng control.data_files dòng dữ liệu với status = ERROR
+            // 25. Insert vào bảng db_control.data_files dòng dữ liệu với status = ERROR
             dao.insertStatus(connection, config.getId(), "ERROR", date);
             // 26. Gửi mail báo lỗi
             SendEmailError.sendErrorEmail("EXTRACTING", "Error while extracting data: " + e.getMessage());
